@@ -22,5 +22,27 @@ I'm going to be basically re-implementing everything since the way I was doing i
    - Load each aggregated document into a faiss index
    - Using this (implementation to come), determine top-k accuracy (1, 5, 10), mAP (all, @5, @10), recall (@5, @10, @25)
    - Store results in a .csv file (append)
-5. Reranking?
-   - Honestly not too sure what this is yet, or how to implement it, but I'm willing to try it if it improve performance
+
+## Flow
+The basic flow will be structured as follows:
+- Create a Dataset and Dataloader for the training set
+- In batches, split the documents into windows, skipping windows with a low foreground percentage
+   - First, pad documents to a multiple of `stride` using PyTorch's `Pad` transform
+- In the same batches, extract the patch features
+- During filtering, examine each document and return a list of patches to keep (foreground threshold), and apply it
+   - This can be done using `avg_pool2d * 16 * 16`, comparing each kernel to `foreground_threshold`
+- Take all training documents and build a VLAD codebook using a max of `100,000` or `1,000,000` random descriptors
+   - This is done using faiss's `Kmeans` method for fast GPU training
+   - Apply power normalization
+   - Apply l2 normalization
+   - Train a `PCAMatrix` (also faiss) using the final training descriptors (from VLAD)
+- Free the other Dataset (if necessary), and create a new one for the testing set
+- Run each testing document through VLAD
+   - Find the nearest cluster to each descriptor
+   - Sum the residuals per-cluster
+   - Run through the pre-trained PCA model
+- Load each aggregated document into a faiss index and run metrics
+   - Calculate top-k accuracy (1, 5, 10), mAP (all, 5, 10), and recall (5, 10, 25)
+   - Store results in a csv file
+
+Note: this can be done either all at once (likely better for performance and clarity) or broken up into smaller steps
