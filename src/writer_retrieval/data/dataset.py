@@ -7,6 +7,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Sampler
 from torchvision.io import decode_image, ImageReadMode
+from torchvision.transforms import v2
 
 from writer_retrieval.data import WINDOW_SIZE, EXTENSIONS
 from writer_retrieval.data.splitter import pad_document, split_document
@@ -56,7 +57,9 @@ class HistoricalWIDataset(Dataset):
     def __getitem__(self, index: int) -> tuple[Tensor, int, int]:
         path, label, windows = self.samples[index]
         
-        return decode_image(path, ImageReadMode.GRAY), label, windows
+        image = decode_image(path)
+        
+        return image, label, windows
 
 class WindowSampler(Sampler):
     """
@@ -91,8 +94,7 @@ class WindowSampler(Sampler):
             yield batch
     
     def __len__(self) -> int:
-        # weird fix to make the iterations more accurate on HistoricalWI
-        return ceil(self.total_windows / self.max_windows * 0.96) 
+        return ceil(self.total_windows / self.max_windows) 
 
 def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
     """

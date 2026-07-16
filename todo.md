@@ -46,3 +46,11 @@ The basic flow will be structured as follows:
    - Store results in a csv file
 
 Note: this can be done either all at once (likely better for performance and clarity) or broken up into smaller steps
+
+## Notes:
+Extraction times (HistoricalWI test: 3,600 images):
+- no_grad:              2:44
+- inference_mode:       2:46
+- float16:              1:26
+- bfloat16:             1:30
+- persist & prefetch:   1:26
