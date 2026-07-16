@@ -14,5 +14,7 @@ if __name__ == "__main__":
         collate_fn=window_collate
     )
     
-    for batch in dataloader:
-        print(len(batch))
+    for batch in tqdm(dataloader):
+        windows, writers, documents = batch
+        
+        print(windows.size())

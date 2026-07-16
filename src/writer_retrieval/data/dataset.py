@@ -32,7 +32,7 @@ class HistoricalWIDataset(Dataset):
         self._total_windows = 0
         
         # fetch all file names
-        self.samples: list[tuple[Path, int]] = []
+        self.samples: list[tuple[Path, int, int]] = []
         
         for path in sorted(Path(root).rglob("*")):
             # make sure file extension is supported
@@ -48,7 +48,7 @@ class HistoricalWIDataset(Dataset):
             windows = (ceil((w - WINDOW_SIZE) / stride) + 1) * (ceil((h - WINDOW_SIZE) / stride) + 1)
             self._total_windows += windows
             
-            self.samples.append((path, path.name.split("-", 1)[0], windows))
+            self.samples.append((path, int(path.name.split("-", 1)[0]), windows))
     
     def __len__(self) -> int:
         return len(self.samples)
@@ -73,11 +73,10 @@ class WindowSampler(Sampler):
         batch = []
         batch_wins = 0
         
-        for i, item in enumerate(self.data):
+        for i, (_, _, windows) in enumerate(self.data.samples):
             batch.append(i)
             
             # update total windows
-            _, _, windows = item
             batch_wins += windows
             
             # yield the full batch
@@ -92,7 +91,7 @@ class WindowSampler(Sampler):
             yield batch
     
     def __len__(self) -> int:
-        return self.total_windows
+        return ceil(self.total_windows / self.max_windows)
 
 def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
     """
@@ -109,14 +108,22 @@ def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
     
     # split each document
     windows: list[Tensor] = [None for _ in range(len(data))]
+    writers: list[int] = []
+    documents: list[int] = []
+    doc_id = 0
     
     for i in range(len(data)):
-        document, writer, win = data[i]
+        document, writer, wins = data[i]
         
         # pad documents
         windows[i] = pad_document(document, stride)
         
         # split windows
         windows[i] = split_document(windows[i], stride)
+        
+        # add writers
+        writers += [writer] * wins
+        documents += [doc_id] * wins
+        doc_id += 1
     
-    return torch.cat(windows)
+    return torch.cat(windows), Tensor(writers), Tensor(documents)
