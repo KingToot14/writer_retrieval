@@ -53,4 +53,11 @@ Extraction times (HistoricalWI test: 3,600 images):
 - inference_mode:       2:46
 - float16:              1:26
 - bfloat16:             1:30
-- persist & prefetch:   1:26
+- persist & prefetch:   1:26 (Presistent workers hangs indefinitely after completion, so it's not recommended to be used)
+- workers: 16 => 0:     1:17
+- workers=4:            1:22 (Starting with this one, prefetch_factor was set to 4)
+- workers=8:            1:24
+- workers=2:            1:19
+- workers=0, compiled:  1:17
+- window_count=8192:    1:19 (now possible due to half-precision)
+- __getitems__:         1:16 (not really meaningfully different, but cool to have)

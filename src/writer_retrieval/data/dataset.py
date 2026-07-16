@@ -60,6 +60,18 @@ class HistoricalWIDataset(Dataset):
         image = decode_image(path)
         
         return image, label, windows
+    
+    def __getitems__(self, indicies: int) -> tuple[Tensor, int, int]:
+        batch = []
+        
+        for index in indicies:
+            path, label, windows = self.samples[index]
+            
+            image = decode_image(path)
+            
+            batch.append((image, label, windows, index))
+        
+        return batch
 
 class WindowSampler(Sampler):
     """
@@ -116,7 +128,7 @@ def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
     doc_id = 0
     
     for i in range(len(data)):
-        document, writer, wins = data[i]
+        document, writer, wins, _ = data[i]
         
         # pad documents
         windows[i] = pad_document(document, stride)
