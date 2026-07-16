@@ -6,15 +6,17 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    dataset = HistoricalWIDataset("datasets/historical_wi/train")
+    dataset = HistoricalWIDataset("datasets/historical_wi/test")
     
     dataloader = DataLoader(
         dataset,
         batch_sampler=WindowSampler(dataset, dataset.total_windows, 512),
-        collate_fn=window_collate
+        collate_fn=window_collate,
+        num_workers=8,
+        pin_memory=True,
     )
     
     for batch in tqdm(dataloader):
         windows, writers, documents = batch
-        
-        print(windows.size())
+    
+    print("Done")

@@ -91,7 +91,8 @@ class WindowSampler(Sampler):
             yield batch
     
     def __len__(self) -> int:
-        return ceil(self.total_windows / self.max_windows)
+        # weird fix to make the iterations more accurate on HistoricalWI
+        return ceil(self.total_windows / self.max_windows * 0.96) 
 
 def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
     """
@@ -126,4 +127,4 @@ def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
         documents += [doc_id] * wins
         doc_id += 1
     
-    return torch.cat(windows), Tensor(writers), Tensor(documents)
+    return torch.cat(windows), torch.tensor(writers, dtype=torch.int32), torch.tensor(documents, dtype=torch.int32)
