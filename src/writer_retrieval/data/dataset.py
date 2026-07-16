@@ -3,13 +3,13 @@ from pathlib import Path
 
 from PIL import Image
 
+import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Sampler
 from torchvision.io import decode_image, ImageReadMode
 
-# --- Constants --- #
-EXTENSIONS = [".png", ".jpg", ".jpeg"]
-WINDOW_SIZE = 224
+from writer_retrieval.data import WINDOW_SIZE, EXTENSIONS
+from writer_retrieval.data.splitter import pad_document, split_document
 
 # --- Classes --- #
 class HistoricalWIDataset(Dataset):
@@ -94,5 +94,29 @@ class WindowSampler(Sampler):
     def __len__(self) -> int:
         return self.total_windows
 
-def window_collate(data: list[tuple]):
-    return data
+def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
+    """
+    Collates a batch of documents by padding them to multiples of `stride`, then extracting
+    each window.
+    
+    Args:
+        data: The list of data in the form: image, writer, window count
+        stride: The distance between the start of each window
+    
+    Returns:
+        A 4-dimensional `Tensor` in the shape: [batch_size, channels, height, width]
+    """
+    
+    # split each document
+    windows: list[Tensor] = [None for _ in range(len(data))]
+    
+    for i in range(len(data)):
+        document, writer, win = data[i]
+        
+        # pad documents
+        windows[i] = pad_document(document, stride)
+        
+        # split windows
+        windows[i] = split_document(windows[i], stride)
+    
+    return torch.cat(windows)
