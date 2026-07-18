@@ -61,3 +61,4 @@ Extraction times (HistoricalWI test: 3,600 images):
 - workers=0, compiled:  1:17
 - window_count=8192:    1:19 (now possible due to half-precision)
 - __getitems__:         1:16 (not really meaningfully different, but cool to have)
+- filtered:             1:14
