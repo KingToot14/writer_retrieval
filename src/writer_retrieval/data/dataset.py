@@ -1,6 +1,3 @@
-from io import BytesIO
-from zstd import compress, decompress
-
 from math import ceil
 from pathlib import Path
 
@@ -9,8 +6,7 @@ from PIL import Image
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, Sampler
-from torchvision.io import decode_image, ImageReadMode
-from torchvision.transforms import v2
+from torchvision.io import decode_image
 
 from writer_retrieval.data import WINDOW_SIZE, EXTENSIONS
 from writer_retrieval.data.splitter import pad_document, split_document
@@ -145,57 +141,3 @@ def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
         doc_id += 1
     
     return torch.cat(windows), torch.tensor(writers, dtype=torch.int32), torch.tensor(documents, dtype=torch.int32)
-
-def save_patches(path: str, patches: Tensor, writers: Tensor, documents: Tensor) -> None:
-    """
-    Stores a set of patches in a compressed format in order to save memory and storage
-    
-    Args:
-        path (str): The location to store the patches at
-        patches (Tensor): The patches extracted through DINO
-        writers (Tensor): The writer IDs that map each patch to a writer
-        documents (Tensor): The document IDs that map each patch to a specific document
-    """
-    
-    # make sure folder exists
-    Path("/".join(path.split("/")[:-1])).mkdir(parents=True, exist_ok=True)
-    
-    with open(path, 'wb') as fp:
-        buf: BytesIO = BytesIO()
-        torch.save({
-            'patches': patches,
-            'writers': writers,
-            'documents': documents,
-        }, buf)
-        
-        buf.seek(0)
-        fp.write(compress(buf.read()))
-
-def load_patches(path: str) -> tuple[Tensor, Tensor, Tensor]:
-    """
-    Loads a set of patches containing 3 tensors: patch data, writer IDs, and document IDs
-    
-    Args:
-        path (str): The location to load the patches from
-    
-    Returns:
-        patches (Tensor): the patch data extracted from DINO
-        writers (Tensor): the writer IDs for each of the extracted patches
-        documents (Tensor): the document IDs for each of the extracted patches
-    """
-    
-    data: dict[str, Tensor] = {}
-    
-    with open(path, 'rb') as fp:
-        buf: BytesIO = BytesIO(decompress(fp.read()))
-        
-        data = torch.load(buf)
-    
-    return data['patches'], data['writers'], data['documents']
-        # torch.save({
-        #     'patches': patches,
-        #     'writers': writers,
-        #     'documents': documents,
-        # }, buf)
-        
-        # fp.write(compress(buf.read()))

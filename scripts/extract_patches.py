@@ -4,7 +4,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from writer_retrieval.data import TO_FLOAT, NORMALIZE
-from writer_retrieval.data.dataset import HistoricalWIDataset, WindowSampler, window_collate, save_patches
+from writer_retrieval.data.dataset import HistoricalWIDataset, WindowSampler, window_collate
+from writer_retrieval.data.serialization import save_patches
 from writer_retrieval.models.dino import DINOModelv3
 from writer_retrieval.data.filter import get_window_filter, get_patch_filter
 
@@ -79,5 +80,5 @@ if __name__ == "__main__":
         })
         
         # store tokens
-        save_patches(f"output/patches/patch_{iteration}.ptzip", tokens, writers, documents)
+        save_patches(f"output/patches/patch_{iteration}.pt", tokens, writers, documents)
         iteration += 1
