@@ -1,12 +1,12 @@
-from writer_retrieval.data import TO_FLOAT, NORMALIZE
-from writer_retrieval.data.dataset import HistoricalWIDataset, WindowSampler, window_collate
-from writer_retrieval.models.dino import DINOModelv3
-from writer_retrieval.data.filter import get_window_filter, get_patch_filter
-
 import torch
 from torch.utils.data import DataLoader
 
 from tqdm import tqdm
+
+from writer_retrieval.data import TO_FLOAT, NORMALIZE
+from writer_retrieval.data.dataset import HistoricalWIDataset, WindowSampler, window_collate, save_patches
+from writer_retrieval.models.dino import DINOModelv3
+from writer_retrieval.data.filter import get_window_filter, get_patch_filter
 
 if __name__ == "__main__":
     dataset = HistoricalWIDataset("datasets/historical_wi/test")
@@ -28,6 +28,8 @@ if __name__ == "__main__":
     
     total_patches: int = 0
     filtered_patches: int = 0
+    
+    iteration = 0
     
     for batch in data:
         windows, writers, documents = batch
@@ -75,3 +77,7 @@ if __name__ == "__main__":
             "windows": f"{(filtered_windows / total_windows) * 100:.2f}%",
             "patches": f"{(filtered_patches / total_patches) * 100:.2f}%",
         })
+        
+        # store tokens
+        save_patches(f"output/patches/patch_{iteration}.ptzip", tokens, writers, documents)
+        iteration += 1
