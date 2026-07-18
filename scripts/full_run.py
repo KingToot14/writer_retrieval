@@ -1,7 +1,7 @@
 from writer_retrieval.data import TO_FLOAT, NORMALIZE
 from writer_retrieval.data.dataset import HistoricalWIDataset, WindowSampler, window_collate
 from writer_retrieval.models.dino import DINOModelv3
-from writer_retrieval.data.filter import get_window_filter
+from writer_retrieval.data.filter import get_window_filter, get_patch_filter
 
 import torch
 from torch.utils.data import DataLoader
@@ -23,7 +23,11 @@ if __name__ == "__main__":
     
     # start processing
     data = tqdm(dataloader)
-    total_filtered: int = 0
+    total_windows: int = 0
+    filtered_windows: int = 0
+    
+    total_patches: int = 0
+    filtered_patches: int = 0
     
     for batch in data:
         windows, writers, documents = batch
@@ -35,20 +39,39 @@ if __name__ == "__main__":
         windows = TO_FLOAT(windows)
         
         # filter windows
-        mask = get_window_filter(windows)
-        kept: int = mask.size()[0]
+        mask_win = get_window_filter(windows)
+        win_count: int = mask_win.numel()
         
         # update tensors
-        windows = windows[mask]
-        writers = writers[mask]
-        documents = documents[mask]
+        windows = windows[mask_win]
+        writers = writers[mask_win]
+        documents = documents[mask_win]
         
         # update stats
-        total_filtered += windows.size()[0] - kept
-        data.set_postfix({"filtered_windows": total_filtered})
+        total_windows += win_count
+        filtered_windows += mask_win.sum().item()
+        
+        # get patch filter
+        mask_patch = get_patch_filter(windows)
         
         # extract tokens
         windows = NORMALIZE(windows)
         tokens = model.extract_windows(windows)
         
+        patch_count = mask_patch.numel()
         
+        # filter patches
+        window_ids, patch_ids = mask_patch.nonzero(as_tuple=True)
+        
+        tokens = tokens[window_ids, patch_ids]
+        writers = writers[window_ids]
+        documents = documents[window_ids]
+        
+        # update stats
+        total_patches += patch_count
+        filtered_patches += mask_patch.sum().item()
+        
+        data.set_postfix({
+            "windows": f"{(filtered_windows / total_windows) * 100:.2f}%",
+            "patches": f"{(filtered_patches / total_patches) * 100:.2f}%",
+        })
