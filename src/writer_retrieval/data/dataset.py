@@ -32,7 +32,8 @@ class HistoricalWIDataset(Dataset):
         self._total_windows = 0
         
         # fetch all file names
-        self.samples: list[tuple[Path, int, int]] = []
+        self.samples: list[tuple[Path, int, int, int]] = []
+        doc_id = 0
         
         for path in sorted(Path(root).rglob("*")):
             # make sure file extension is supported
@@ -48,27 +49,28 @@ class HistoricalWIDataset(Dataset):
             windows = (ceil((w - WINDOW_SIZE) / stride) + 1) * (ceil((h - WINDOW_SIZE) / stride) + 1)
             self._total_windows += windows
             
-            self.samples.append((path, int(path.name.split("-", 1)[0]), windows))
+            self.samples.append((path, int(path.name.split("-", 1)[0]), windows, doc_id))
+            doc_id += 1
     
     def __len__(self) -> int:
         return len(self.samples)
 
     def __getitem__(self, index: int) -> tuple[Tensor, int, int]:
-        path, label, windows = self.samples[index]
+        path, label, windows, document = self.samples[index]
         
         image = decode_image(path)
         
-        return image, label, windows
+        return image, label, windows, document
     
     def __getitems__(self, indicies: int) -> tuple[Tensor, int, int]:
         batch = []
         
         for index in indicies:
-            path, label, windows = self.samples[index]
+            path, label, windows, document = self.samples[index]
             
             image = decode_image(path)
             
-            batch.append((image, label, windows, index))
+            batch.append((image, label, windows, document, index))
         
         return batch
 
@@ -78,19 +80,36 @@ class WindowSampler(Sampler):
     stops adding windows after this limit has been reached, but almost always will exceed this limit
     """
     
-    def __init__(self, data: HistoricalWIDataset, total_windows: int, max_windows: int):
+    def __init__(self,
+            data: HistoricalWIDataset,
+            total_windows: int,
+            max_windows: int,
+            rank: int = 0,
+            world_size: int = 1,
+        ):
+        
         self.data: HistoricalWIDataset = data
-        self.total_windows: int = total_windows
         self.max_windows: int = max_windows
+        
+        self.rank = rank
+        self.world_size = world_size
+        
+        # select samples
+        self.indicies = list(range(rank, len(data), world_size))
+        
+        self.total_windows = sum(
+            data.samples[i][2] for i in self.indicies
+        )
     
     def __iter__(self):
         batch = []
         batch_wins = 0
         
-        for i, (_, _, windows) in enumerate(self.data.samples):
-            batch.append(i)
+        for i in self.indicies:
+            _, _, windows, _ = self.data.samples[i]
             
             # update total windows
+            batch.append(i)
             batch_wins += windows
             
             # yield the full batch
@@ -124,10 +143,9 @@ def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
     windows: list[Tensor] = [None for _ in range(len(data))]
     writers: list[int] = []
     documents: list[int] = []
-    doc_id = 0
     
     for i in range(len(data)):
-        document, writer, wins, _ = data[i]
+        document, writer, wins, doc, _ = data[i]
         
         # pad documents
         windows[i] = pad_document(document, stride)
@@ -137,7 +155,6 @@ def window_collate(data: list[tuple], stride: int = 224) -> Tensor:
         
         # add writers
         writers += [writer] * wins
-        documents += [doc_id] * wins
-        doc_id += 1
+        documents += [doc] * wins
     
     return torch.cat(windows), torch.tensor(writers, dtype=torch.int32), torch.tensor(documents, dtype=torch.int32)

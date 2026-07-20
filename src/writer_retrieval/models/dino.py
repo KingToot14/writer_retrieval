@@ -14,11 +14,11 @@ class DINOModelBase:
         """
         pass
     
-    def cuda(self, device: int):
+    def to(self, device: torch.device):
         """
-        Wrapper around `self.model` to convert this model to a specific GPU on `device`
+        Wrapper around `self.model` to move this model to a specific `device`
         """
-        self.model = self.model.cuda(device)
+        self.model = self.model.to(device)
         
         return self
 

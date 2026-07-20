@@ -62,3 +62,11 @@ Extraction times (HistoricalWI test: 3,600 images):
 - window_count=8192:    1:19 (now possible due to half-precision)
 - __getitems__:         1:16 (not really meaningfully different, but cool to have)
 - filtered:             1:14
+
+Updated benchmarking (full pipeline implemented):
+- baseline:             0:34, 2:32
+- tensorfloat32:        0:33, 2:36
+- matmul_precision:     0:34, 2:37  (all pretty much insignificant)
+- two gpus:             0:25, 1:33
+- windows=8192:         0:27, 1:36
+- windows=2048:         0:27, 1:30
