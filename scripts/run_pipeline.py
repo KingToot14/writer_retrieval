@@ -5,7 +5,11 @@ import yaml
 from types import SimpleNamespace
 from argparse import ArgumentParser
 
-import subprocess
+import torch
+
+from extract import extract_dataset
+from train_models import train_vald_and_pca
+from get_metrics import retrieve_writers
 
 def dict_to_namespace(data: dict) -> SimpleNamespace:
     """
@@ -21,7 +25,7 @@ def dict_to_namespace(data: dict) -> SimpleNamespace:
     
     return data
 
-if __name__ == "__main__":
+def main():
     # create parser
     parser = ArgumentParser()
     parser.add_argument("config_file")
@@ -36,73 +40,70 @@ if __name__ == "__main__":
     
     # set environment variables
     repo = Path(__file__).resolve().parents[1]
-
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(repo)
-    env["OMP_NUM_THREADS"] = str(config.runtime.omp_num_threads)
-    env["NCCL_P2P_DISABLE"] = str(config.runtime.nccl_p2p_disable)
-    env["CUDA_VISIBLE_DEVICES"] = str(config.runtime.cuda_visible_devices)
     
     # --- Patch Extraction --- #
-    args = [
-        "./.venv/bin/torchrun",
-        f"--nnodes={config.runtime.nnodes}",
-        f"--nproc-per-node={config.runtime.nproc_per_node}",
-        "--standalone",
-        "--rdzv-backend=c10d",
-        "--rdzv-endpoint=localhost:0",
-        "scripts/extract.py",
-    ]
+    world_size = os.getenv('WORLD_SIZE')
+    if not world_size:
+        world_size = 1
+    else:
+        world_size = int(world_size)
     
-    script_args = [
-        "--train-stride", str(config.extract.train_stride),
-        "--test-stride", str(config.extract.test_stride),
-        "--num-windows", str(config.extract.num_windows),
-        "--weights", str(config.weights),
-    ]
-
-    # check DINOv1
-    if config.model.kind == "dino_v1":
-        args.append("--dino-v1")
-
-    # add positional args
-    script_args += [
-        config.dataset, config.run_name,
-    ]
+    local_rank = os.getenv('LOCAL_RANK')
+    if not local_rank:
+        local_rank = 0
+    else:
+        local_rank = int(local_rank)
     
-    args += script_args
-
-    # --- Model Training --- #
-    subprocess.run(
-        args,
-        cwd=repo,
-        env=env,
-        check=True
+    # parse arguments
+    args = parser.parse_args()
+    
+    # print settings
+    print(f"Extracting dataset: `{config.dataset}` ({config.run_name})")
+    print(f"    Weights: `{config.weights}`")
+    print(f"    Version: `{config.model.version}`")
+    print(f"    Model:   `{config.model.kind}`")
+    print(f"    Stride:  {config.extract.train_stride} (train), {config.extract.test_stride} (test)")
+    
+    # set PyTorch settings
+    torch.backends.fp32_precision = "tf32"
+    torch.backends.cuda.matmul.fp32_precision = "tf32"
+    torch.backends.cudnn.fp32_precision = "tf32"
+    
+    torch.set_float32_matmul_precision("medium")
+    
+    # extract training set
+    extract_dataset(
+        os.path.join(config.dataset, "train"),
+        os.path.join(config.run_name, "train"),
+        weight_path=config.weights,
+        dino_version=config.model.version,
+        use_dino_v1=config.model.kind == "dino_v1",
+        max_windows=config.extract.num_windows,
+        stride=config.extract.train_stride,
+        world_size=world_size,
+        local_rank=local_rank,
     )
     
-    args = [
-        "./.venv/bin/python",
-        "scripts/train_models.py",
-        f"output/patches/{config.run_name}", config.run_name,
-    ]
-    
-    # --- Metrics --- #
-    subprocess.run(
-        args,
-        cwd=repo,
-        env=env,
-        check=True
+    # extract testing set
+    extract_dataset(
+        os.path.join(config.dataset, "test"),
+        os.path.join(config.run_name, "test"),
+        weight_path=config.weights,
+        dino_version=config.model.version,
+        use_dino_v1=config.model.kind == "dino_v1",
+        max_windows=config.extract.num_windows,
+        stride=config.extract.test_stride,
+        world_size=world_size,
+        local_rank=local_rank,
     )
     
-    args = [
-        "./.venv/bin/python",
-        "scripts/get_metrics.py",
-        f"output/patches/{config.run_name}", config.run_name,
-    ]
+    # free non-main GPUs
+    if local_rank != 0:
+        return
+
+    train_vald_and_pca(f"output/patches/{config.run_name}", config.run_name)
+    retrieve_writers(f"output/patches/{config.run_name}", config.run_name)
     
-    subprocess.run(
-        args,
-        cwd=repo,
-        env=env,
-        check=True
-    )
+
+if __name__ == "__main__":
+    main()
