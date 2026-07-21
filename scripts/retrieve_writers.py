@@ -1,9 +1,11 @@
 from pathlib import Path
 
 from writer_retrieval.data.serialization import load_patch
-from writer_retrieval.retrieval.index import WriterIndex
 import writer_retrieval.models.vlad as vlad
 import writer_retrieval.models.pca as pca
+
+from writer_retrieval.retrieval.index import WriterIndex
+import writer_retrieval.retrieval.metrics as metrics
 
 import torch
 from torch import Tensor
@@ -26,7 +28,7 @@ if __name__ == "__main__":
     pca_model.load("output/models/pretrained_vits16/pca.model")
     
     # load documents in batches
-    for path in tqdm(paths):
+    for path in tqdm(paths, desc="Creating VLAD Descriptors"):
         for document, writer, doc_id in load_patch(path):
             # create VLAD descriptor
             descriptor = codebook.create_descriptor(document)
@@ -41,10 +43,13 @@ if __name__ == "__main__":
     
     # collect descriptors
     descriptors: Tensor = torch.cat(descriptors)
+    writers: Tensor = torch.as_tensor(writers)
     
     # create index
     index = WriterIndex(descriptors.shape[-1])
     index.add(descriptors)
     
-    # test index retrieval
-    print(index.get_top_k(descriptors[0], 5))
+    # calculate metrics
+    met = metrics.Metrics(descriptors, writers, index)
+    
+    print(met.top_k_accuracy(5))

@@ -25,6 +25,10 @@ class WriterIndex:
         similar document will be itself, so `k` is increased by 1, and the 1st value is omitted
         """
         
-        similarity, index = self.index.search(query.unsqueeze(0), k + 1)
+        # check for batch processing
+        if query.dim() == 1:
+            query = query.unsqueeze(0)
         
-        return similarity.squeeze()[1:], index.squeeze()[1:]
+        similarity, index = self.index.search(query, k + 1)
+        
+        return similarity[:, 1:], index[:, 1:]
