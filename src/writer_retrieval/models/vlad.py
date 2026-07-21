@@ -1,5 +1,6 @@
 import torch
 from torch import Tensor
+import torch.nn.functional as F
 
 import faiss
 import faiss.contrib.torch_utils
@@ -58,7 +59,11 @@ class VLADCodebook():
         descriptor.index_add_(0, indices, residuals)
         descriptor = descriptor.reshape(-1)
         
-        # TODO: normalize (if that's correct)
+        # power normalization
+        descriptor = torch.sign(descriptor) * torch.abs(descriptor).pow(0.5)
+        
+        # l2 normalization
+        descriptor = F.normalize(descriptor, p=2, dim=0)
         
         return descriptor
         
