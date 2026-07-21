@@ -40,7 +40,12 @@ def load_patch(path: str) -> list[tuple[Tensor, int, int]]:
     
     unique_documents, counts = torch.unique_consecutive(data['documents'], return_counts=True)
     grouped_patches: Tensor = torch.split(data['patches'], counts.tolist())
-    grouped_writers: Tensor = data['writers'][counts.cumsum(0) - counts[0]]
+    
+    group_starts = torch.cat((
+        torch.zeros(1, dtype=torch.long, device=data['documents'].device),
+        counts.cumsum(0)[:-1]
+    ))
+    grouped_writers: Tensor = data['writers'][group_starts]
     
     return [
         (grouped_patches[i].contiguous(), int(grouped_writers[i]), int(unique_documents[i]))
