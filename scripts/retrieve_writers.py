@@ -53,3 +53,4 @@ if __name__ == "__main__":
     met = metrics.Metrics(descriptors, writers, index)
     
     print(met.top_k_accuracy(5))
+    print(met.mean_average_precision())

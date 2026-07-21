@@ -22,8 +22,14 @@ class WriterIndex:
     def get_top_k(self, query: Tensor, k: int = 1) -> tuple[Tensor, Tensor]:
         """
         Returns the top `k` closest documents to the `query` document. This assumes that the most
-        similar document will be itself, so `k` is increased by 1, and the 1st value is omitted
+        similar document will be itself, so `k` is increased by 1, and the 1st value is omitted.
+        
+        If `k` is equal to `-1`, all matches are returend instead
         """
+        
+        # check for special `k` values
+        if k == -1:
+            k = self.index.ntotal - 1
         
         # check for batch processing
         if query.dim() == 1:
