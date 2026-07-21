@@ -47,9 +47,9 @@ def extract_dataset(
     model: DINOModelBase
     
     if use_dino_v1:
-        model = DINOModelv1(dino_version, weight_path, device, False)
+        model = DINOModelv1(dino_version, weight_path, device)
     else:
-        model = DINOModelv3(dino_version, weight_path, device, False)
+        model = DINOModelv3(dino_version, weight_path, device)
     
     # start processing
     data = dataloader
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     parser.add_argument("dataset")
     parser.add_argument("run_name")
     parser.add_argument("-w", "--weights", default="weights/dinov3_vits16")
-    parser.add_argument("-v", "--version", default="dinov3_vits16")
+    parser.add_argument("-v", "--version", default="vits16")
     parser.add_argument("-n", "--num-windows", default=4096, type=int)
     parser.add_argument("--dino-v1", default=False, action="store_true")
     parser.add_argument("--train-stride", default=224, type=int)

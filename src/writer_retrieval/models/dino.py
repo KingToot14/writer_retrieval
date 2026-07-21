@@ -20,26 +20,29 @@ class DINOModelv1(DINOModelBase):
     Loads and constructs a DINOv1 model using TorchHub
     """
     
-    def __init__(self, version: str, weights: str, device: torch.device, use_checkpoint: bool = True):
+    def __init__(self, version: str, weights: str, device: torch.device):
         """
-        Loads a DINOv1 model from TorchHub and sets up the weights, if available.
+        Loads a DINOv1 model from TorchHub and sets up the weights, if available. NOTE: there are two
+        ways that weights can be loaded:
+         - Official DINO weight should be named "dino_<version>", otherwise this script assumes
+         they are checkpoints
+         - Checkpoint files gathered from training, this mode is used on any file that is not detected
+         to be a dino weight file (files that are named "dino_<version>")
         
         Args:
-            version (str): the version of the DINOv1 model to load. This should be among ["dino_vits16", 
-                "dino_vits8", "dino_vitb16", and "dino_vitb8"]
+            version (str): the version of the DINOv1 model to load. This should be among ["vits16", 
+                "vits8", "vitb16", and "vitb8"]
             weights (str): the path to the weights that are loaded into the model. If `use_checkpoint`
                 is `False`, then these should be official, pre-trained DINOv1 weights. If
                 `use_checkpoint` is `True`, these weights act as a "checkpoint" loaded in with
                 `load_state_dict`
-            use_checkpoint (bool): If `True`, this signals that the `weights` are using a checkpoint format
-                rather than the official DINOv1 weight format
         """
         
-        if use_checkpoint:
+        if not weights.split('/')[-1].startswith("dino"):
             print("Loading DINOv1 from checkpoint file")
             self.model = torch.hub.load(
                 "facebookresearch/dino:main",
-                version,
+                f"dino_{version}",
                 pretrained=False
             )
             
@@ -78,26 +81,29 @@ class DINOModelv3(DINOModelBase):
     Loads and constructs a DINOv3 model using TorchHub
     """
     
-    def __init__(self, version: str, weights: str, device: torch.device, use_checkpoint: bool = True):
+    def __init__(self, version: str, weights: str, device: torch.device):
         """
-        Loads a DINOv3 model from TorchHub and sets up the weights, if available.
+        Loads a DINOv3 model from TorchHub and sets up the weights, if available. NOTE: there are two
+        ways that weights can be loaded:
+         - Official DINO weight should be named "dinov3_<version>", otherwise this script assumes
+         they are checkpoints
+         - Checkpoint files gathered from training, this mode is used on any file that is not detected
+         to be a dino weight file (files that are named "dinov3_<version>")
         
         Args:
-            version (str): the version of the DINOv3 model to load. This should be among ["dinov3_vits16",
-            "dinov3_vits16plus", "dinov3_vitb16", "dinov3_vitl16", "dinov3_vith16plus", and "dinov3_vit7b16"]
+            version (str): the version of the DINOv3 model to load. This should be among ["vits16",
+            "vits16plus", "vitb16", "vitl16", "vith16plus", and "vit7b16"]
             weights (str): the path to the weights that are loaded into the model. If `use_checkpoint`
                 is `False`, then these should be official, pre-trained DINOv3 weights. If
                 `use_checkpoint` is `True`, these weights act as a "checkpoint" loaded in with
                 `load_state_dict`
-            use_checkpoint (bool): If `True`, this signals that the `weights` are using a checkpoint format
-                rather than the official DINOv3 weight format
         """
         
-        if use_checkpoint:
+        if not weights.split('/')[-1].startswith("dinov3"):
             print("Loading DINOv3 from checkpoint file")
             self.model = torch.hub.load(
                 "facebookresearch/dinov3:main",
-                version,
+                f"dinov3_{version}",
                 pretrained=False
             )
             
