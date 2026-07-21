@@ -1,0 +1,50 @@
+from pathlib import Path
+
+from writer_retrieval.data.serialization import load_patch
+from writer_retrieval.retrieval.index import WriterIndex
+import writer_retrieval.models.vlad as vlad
+import writer_retrieval.models.pca as pca
+
+import torch
+from torch import Tensor
+import torch.nn.functional as F
+
+from tqdm import tqdm
+
+if __name__ == "__main__":
+    root = "output/patches/pretrained_vits16/train"
+    
+    paths = sorted(Path(root).rglob("*"))
+    descriptors: list[Tensor] = []
+    writers: list[int] = []
+    
+    # load models
+    codebook = vlad.VLADCodebook()
+    codebook.load("output/models/pretrained_vits16/vlad.pt")
+    
+    pca_model = pca.PCAMatrix()
+    pca_model.load("output/models/pretrained_vits16/pca.model")
+    
+    # load documents in batches
+    for path in tqdm(paths):
+        for document, writer, doc_id in load_patch(path):
+            # create VLAD descriptor
+            descriptor = codebook.create_descriptor(document)
+            
+            # apply PCA whitening
+            descriptor = torch.as_tensor(pca_model.apply(descriptor.unsqueeze(0)))
+            descriptor = F.normalize(descriptor, p=2, dim=1)
+            
+            # add to list
+            descriptors.append(descriptor)
+            writers.append(writer)
+    
+    # collect descriptors
+    descriptors: Tensor = torch.cat(descriptors)
+    
+    # create index
+    index = WriterIndex(descriptors.shape[-1])
+    index.add(descriptors)
+    
+    # test index retrieval
+    print(index.get_top_k(descriptors[0], 5))

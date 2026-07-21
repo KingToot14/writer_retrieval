@@ -24,7 +24,7 @@ def save_patches(path: str, patches: Tensor, writers: Tensor, documents: Tensor)
         'documents': documents,
     }, path)
 
-def load_patch(path: str) -> list[tuple[Tensor, int]]:
+def load_patch(path: str) -> list[tuple[Tensor, int, int]]:
     """
     Loads a set of patches and groups them into individual documents containing the
     grouped patch tokens and the writer ID
@@ -40,8 +40,11 @@ def load_patch(path: str) -> list[tuple[Tensor, int]]:
     
     unique_documents, counts = torch.unique_consecutive(data['documents'], return_counts=True)
     grouped_patches: Tensor = torch.split(data['patches'], counts.tolist())
+    grouped_writers: Tensor = data['writers'][counts.cumsum(0) - counts[0]]
     
-    return [(grouped_patches[i].contiguous(), int(unique_documents[i])) for i in range(len(unique_documents))]
+    return [
+        (grouped_patches[i].contiguous(), int(grouped_writers[i]), int(unique_documents[i]))
+        for i in range(len(unique_documents))]
 
 def load_documents(root: str, target_samples: int = -1, threads: int = 8) -> Tensor:
     """
@@ -56,7 +59,7 @@ def load_documents(root: str, target_samples: int = -1, threads: int = 8) -> Ten
     def _load_and_sample(path: Path) -> list[Tensor]:
         sampled_documents = []
         
-        for document, _ in load_patch(str(path)):
+        for document, _, _ in load_patch(str(path)):
             patch_count = document.shape[0]
             
             # collect random sample (if more than target samples)
