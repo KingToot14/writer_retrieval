@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 from torch import Tensor
 import torch.nn.functional as F
@@ -16,11 +18,12 @@ class VLADCodebook():
             niter (int): the number of training iterations to perform
         """
         
-        self.k = k
+        self.k: int = k
+        self.dimensions: int = patches.shape[1]
         
         # create kmeans
         self.kmeans = faiss.Kmeans(
-            d=patches.shape[1],
+            d=self.dimensions,
             k=k,
             niter=niter,
             verbose=True,
@@ -38,7 +41,7 @@ class VLADCodebook():
         # set index
         self.res = faiss.StandardGpuResources()
         self.index = faiss.GpuIndexFlatL2(
-            self.res, patches.shape[1]
+            self.res, self.dimensions
         )
         self.index.add(self.centroids)
 
@@ -66,4 +69,33 @@ class VLADCodebook():
         descriptor = F.normalize(descriptor, p=2, dim=0)
         
         return descriptor
+    
+    def save(self, path: str) -> None:
+        """
+        Saves the trained VLAD clusters for later use in a new file at `path`
+        """
+        Path("/".join(path.split("/")[:-1])).mkdir(parents=True, exist_ok=True)
         
+        torch.save({
+            "centroids": self.centroids,
+            "k": self.k,
+            "dimensions": self.dimensions,
+        }, path)
+    
+    def load(self, path: str) -> None:
+        """
+        Loads the VLAD clusters and creates a new index from the file at `path`
+        """
+        
+        # load centroids
+        data = torch.load(path)
+        self.centroids = data["centroids"]
+        self.k = data["k"]
+        self.dimensions = data["dimensions"]
+        
+        # create index
+        self.res = faiss.StandardGpuResources()
+        self.index = faiss.GpuIndexFlatL2(
+            self.res, self.dimensions
+        )
+        self.index.add(self.centroids)

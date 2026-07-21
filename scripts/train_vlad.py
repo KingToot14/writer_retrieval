@@ -25,6 +25,9 @@ if __name__ == "__main__":
     codebook = vlad.VLADCodebook()
     codebook.train(torch.cat(patches), niter=100)
     
+    # save VLAD
+    codebook.save("output/models/historical_vits16/vlad.pt")
+    
     # create document descriptors
     descriptors = []
     
@@ -33,10 +36,9 @@ if __name__ == "__main__":
     
     descriptors = torch.stack(descriptors)
     
-    print(descriptors.shape)
-    
     # train PCA
     pca_model = pca.PCAMatrix()
     pca_model.train(descriptors)
     
-    print(pca_model.apply(descriptors), pca_model.apply(descriptors).shape)
+    # save PCA
+    pca_model.save("output/models/historical_vits16/pca.model")

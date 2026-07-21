@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import faiss
 import faiss.contrib.torch_utils
 
@@ -26,3 +28,19 @@ class PCAMatrix:
         """
         
         return self.pca.apply_py(descriptors.cpu())
+    
+    def save(self, path: str) -> None:
+        """
+        Saves the PCA model in a file for later use at the given `path`
+        """
+        
+        Path("/".join(path.split("/")[:-1])).mkdir(parents=True, exist_ok=True)
+        
+        faiss.write_VectorTransform(self.pca, path)
+    
+    def load(self, path: str) -> None:
+        """
+        Loads the PCA model from a file at the given `path`
+        """
+        
+        self.pca = faiss.read_VectorTransform(path)
