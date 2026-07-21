@@ -1,7 +1,8 @@
-import sys
+from tqdm import tqdm
 
 from writer_retrieval.data.serialization import load_documents
 import writer_retrieval.models.vlad as vlad
+import writer_retrieval.models.pca as pca
 
 import torch
 
@@ -25,6 +26,17 @@ if __name__ == "__main__":
     codebook.train(torch.cat(patches), niter=100)
     
     # create document descriptors
-    test = codebook.create_descriptor(documents[0])
+    descriptors = []
     
-    print(test, test.shape)
+    for document in tqdm(documents, desc="Creating VLAD Descriptors"):
+        descriptors.append(codebook.create_descriptor(document))
+    
+    descriptors = torch.stack(descriptors)
+    
+    print(descriptors.shape)
+    
+    # train PCA
+    pca_model = pca.PCAMatrix()
+    pca_model.train(descriptors)
+    
+    print(pca_model.apply(descriptors), pca_model.apply(descriptors).shape)
