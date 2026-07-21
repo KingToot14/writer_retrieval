@@ -1,4 +1,5 @@
 from pathlib import Path
+from argparse import ArgumentParser
 
 from writer_retrieval.data.serialization import load_patch
 import writer_retrieval.models.vlad as vlad
@@ -13,19 +14,21 @@ import torch.nn.functional as F
 
 from tqdm import tqdm
 
-if __name__ == "__main__":
-    root = "output/patches/pretrained_vits16/test"
+def retrieve_writers(root: str, name: str) -> None:
+    """
+    Loads all the testing data in `root/test` and passes it into a FAISS index for top-k and mAP metrics
+    """
     
-    paths = sorted(Path(root).rglob("*"))
+    paths = sorted(Path(root).joinpath("test").rglob("*"))
     descriptors: list[Tensor] = []
     writers: list[int] = []
     
     # load models
     codebook = vlad.VLADCodebook()
-    codebook.load("output/models/pretrained_vits16/vlad.pt")
+    codebook.load(f"output/models/{name}/vlad.pt")
     
     pca_model = pca.PCAMatrix()
-    pca_model.load("output/models/pretrained_vits16/pca.model")
+    pca_model.load(f"output/models/{name}/pca.model")
     
     # load documents in batches
     for path in tqdm(paths, desc="Creating VLAD Descriptors"):
@@ -55,6 +58,18 @@ if __name__ == "__main__":
     # calculate metrics
     met.run_metrics(
         "output/metrics/results.csv",
-        "pretrained_vits16",
-        ["topk:1", "topk:5", "topk:10", "mAP:-1", "map:5", "map:10"],
+        name,
+        ["topk:1", "topk:5", "topk:10", "mAP:-1", "mAP:5", "mAP:10"],
     )
+
+if __name__ == "__main__":
+    parser = ArgumentParser("Extract Patches")
+    
+    # add arguments
+    parser.add_argument("root_path")
+    parser.add_argument("run_name")
+    
+    # parse arguments
+    args = parser.parse_args()
+    
+    retrieve_writers(args.root_path, args.run_name)

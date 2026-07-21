@@ -100,6 +100,8 @@ class Metrics:
                     outputs[labels[-1]] = self.top_k_accuracy(k)
                 case 'mAP':
                     outputs[labels[-1]] = self.mean_average_precision(k)
+            
+            print(labels[-1], outputs[labels[-1]])
         
         # make sure path exists
         Path("/".join(out_path.split("/")[:-1])).mkdir(parents=True, exist_ok=True)
