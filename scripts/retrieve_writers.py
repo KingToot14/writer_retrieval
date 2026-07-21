@@ -52,5 +52,9 @@ if __name__ == "__main__":
     # calculate metrics
     met = metrics.Metrics(descriptors, writers, index)
     
-    print(met.top_k_accuracy(5))
-    print(met.mean_average_precision())
+    # calculate metrics
+    met.run_metrics(
+        "output/metrics/results.csv",
+        "pretrained_vits16",
+        ["topk:1", "topk:5", "topk:10", "mAP:-1", "map:5", "map:10"],
+    )

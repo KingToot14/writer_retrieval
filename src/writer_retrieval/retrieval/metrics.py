@@ -1,3 +1,6 @@
+import csv
+from pathlib import Path
+
 import torch
 from torch import Tensor
 
@@ -67,3 +70,37 @@ class Metrics:
         # calculate and return mAP
         ap /= num_relevant
         return ap.mean().item()
+    
+    def run_metrics(self, out_path: str, name: str, metrics: list[str]) -> None:
+        """
+        Calculates a set of `metrics` with a few configurations in the form: <metric>:<k>. These
+        results are output to a file in `out_path` in a csv format
+        
+        `metrics` can be among: [topk:k, mAP:k]. Note, if k == -1, k will be omitted when saving
+        """
+        
+        labels: list[str] = []
+        outputs: dict[str, float] = {}
+        
+        for metric in metrics:
+            method, k = metric.split(':')
+            k = int(k)
+            
+            if k == -1:
+                labels.append(method)
+            else:
+                labels.append(f"{method}@{k}")
+            
+            match method:
+                case 'topk':
+                    outputs[labels[-1]] = self.top_k_accuracy(k)
+                case 'mAP':
+                    outputs[labels[-1]] = self.mean_average_precision(k)
+        
+        # make sure path exists
+        Path("/".join(out_path.split("/")[:-1])).mkdir(parents=True, exist_ok=True)
+        
+        # append resutls
+        with open(out_path, 'w+') as fs:
+            writer = csv.DictWriter(fs, fieldnames=labels)
+            writer.writerow(outputs)
