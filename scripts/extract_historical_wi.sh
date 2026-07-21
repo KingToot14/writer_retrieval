@@ -2,7 +2,7 @@
 
 # activate python environment
 dataset="datasets/historical_wi"
-run_name="test"
+run_name="pretrained_vits16"
 
 MASTER_ADDR=127.0.0.1
 MASTER_PORT=12345
@@ -20,6 +20,6 @@ export OMP_NUM_THREADS=1
     --rdzv-backend=c10d \
     --rdzv-endpoint=localhost:0 \
     scripts/extract_patches.py \
-        --test-stride 224 \
-        --num-windows 8192 \
+        --test-stride 56 \
+        --num-windows 4096 \
         $dataset $run_name

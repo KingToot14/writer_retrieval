@@ -69,4 +69,4 @@ Updated benchmarking (full pipeline implemented):
 - matmul_precision:     0:34, 2:37  (all pretty much insignificant)
 - two gpus:             0:25, 1:33
 - windows=8192:         0:27, 1:36
-- windows=2048:         0:27, 1:30
+- windows=2048:         0:25, 1:36

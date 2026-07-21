@@ -47,9 +47,9 @@ def extract_dataset(
     model: DINOModelBase
     
     if use_dino_v1:
-        model = DINOModelv1(dino_version, weight_path, False).to(device)
+        model = DINOModelv1(dino_version, weight_path, device, False)
     else:
-        model = DINOModelv3(dino_version, weight_path, False).to(device)
+        model = DINOModelv3(dino_version, weight_path, device, False)
     
     # start processing
     data = dataloader
@@ -72,9 +72,9 @@ def extract_dataset(
         windows: torch.Tensor = windows.to(device, non_blocking=True)
         writers: torch.Tensor = writers.to(device, non_blocking=True)
         documents: torch.Tensor = documents.to(device, non_blocking=True)
-        windows = TO_FLOAT(windows)
+        windows = TO_FLOAT.to(device, non_blocking=True)(windows)
         
-        # filter windows
+        # filter windows-
         mask_win = get_window_filter(windows)
         win_count: int = mask_win.numel()
         
@@ -91,7 +91,7 @@ def extract_dataset(
         mask_patch = get_patch_filter(windows)
         
         # extract tokens
-        windows = NORMALIZE(windows)
+        windows = NORMALIZE.to(device, non_blocking=True)(windows)
         tokens = model.extract_windows(windows)
         
         patch_count = mask_patch.numel()

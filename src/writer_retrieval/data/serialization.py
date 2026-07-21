@@ -23,19 +23,43 @@ def save_patches(path: str, patches: Tensor, writers: Tensor, documents: Tensor)
         'documents': documents,
     }, path)
 
-def load_patches(path: str) -> tuple[Tensor, Tensor, Tensor]:
+def load_documents(path: str) -> list[tuple[Tensor, int]]:
     """
-    Loads a set of patches containing 3 tensors: patch data, writer IDs, and document IDs
+    Loads a set of patches and groups them into individual documents containing the
+    grouped patch tokens and the writer ID
     
     Args:
         path (str): The location to load the patches from
     
     Returns:
-        patches (Tensor): the patch data extracted from DINO
-        writers (Tensor): the writer IDs for each of the extracted patches
-        documents (Tensor): the document IDs for each of the extracted patches
+        documents (list[tuple[Tensor, int]]): The documents in the specified patch file
     """
     
-    data: dict[str, Tensor] = torch.load(path)
+    data = torch.load(path)
     
-    return data['patches'], data['writers'], data['documents']
+    unique_documents, counts = torch.unique_consecutive(data['documents'], return_counts=True)
+    grouped_patches: Tensor = torch.split(data['patches'], counts.tolist())
+    
+    return [(grouped_patches[i], unique_documents[i]) for i in range(len(unique_documents))]
+
+def sample_document_patches(root: str, num_samples: int = 512, reset_device: bool = True, threads: int = 8) -> Tensor:
+    """
+    Collects a subsample of document patches to be used for VLAD codebook training
+    
+    This iteratively loads all patches from the `root` directory, groups them into documents, and takes a sample
+    of it's patches. This is done to preserve memory while still getting a good sample of the documents
+    """
+    
+    samples = []
+    
+    # load each patch file
+    for path in sorted(Path(root).rglob("*")):
+        documents = load_documents(path)
+        
+        for document, _ in documents:
+            if reset_device:
+                samples.append(document[torch.randperm(document.shape[0])[num_samples:]].to("cuda:0"))
+            else:
+                samples.append(document[torch.randperm(document.shape[0])[num_samples:]])
+
+    return torch.cat(samples)

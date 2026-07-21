@@ -13,21 +13,14 @@ class DINOModelBase:
         shape: [batch, channels, height, width] where `height` and `width` are both `224`
         """
         pass
-    
-    def to(self, device: torch.device):
-        """
-        Wrapper around `self.model` to move this model to a specific `device`
-        """
-        self.model = self.model.to(device)
-        
-        return self
+
 
 class DINOModelv1(DINOModelBase):
     """
     Loads and constructs a DINOv1 model using TorchHub
     """
     
-    def __init__(self, version: str, weights: str, use_checkpoint: bool = True):
+    def __init__(self, version: str, weights: str, device: torch.device, use_checkpoint: bool = True):
         """
         Loads a DINOv1 model from TorchHub and sets up the weights, if available.
         
@@ -72,19 +65,20 @@ class DINOModelv1(DINOModelBase):
                 weights=weights
             )
         
-        self.model = self.model.cuda()
+        self.model = self.model.to(device)
         self.model.eval()
     
     def extract_windows(self, windows: Tensor) -> Tensor:
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
             return self.model.get_intermediate_layers(windows, n=1)[0]
 
+
 class DINOModelv3(DINOModelBase):
     """
     Loads and constructs a DINOv3 model using TorchHub
     """
     
-    def __init__(self, version: str, weights: str, use_checkpoint: bool = True):
+    def __init__(self, version: str, weights: str, device: torch.device, use_checkpoint: bool = True):
         """
         Loads a DINOv3 model from TorchHub and sets up the weights, if available.
         
@@ -129,7 +123,7 @@ class DINOModelv3(DINOModelBase):
                 weights=weights
             )
         
-        self.model = self.model.cuda()
+        self.model = self.model.to(device)
         self.model.eval()
     
     def extract_windows(self, windows: Tensor) -> Tensor:
