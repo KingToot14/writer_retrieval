@@ -79,9 +79,13 @@ class Metrics:
         `metrics` can be among: [topk:k, mAP:k]. Note, if k == -1, k will be omitted when saving
         """
         
-        labels: list[str] = []
+        labels: list[str] = ["name"]
         outputs: dict[str, float] = {}
         
+        # add name
+        outputs["name"] = name
+        
+        # calculate metrics
         for metric in metrics:
             method, k = metric.split(':')
             k = int(k)
@@ -101,6 +105,6 @@ class Metrics:
         Path("/".join(out_path.split("/")[:-1])).mkdir(parents=True, exist_ok=True)
         
         # append resutls
-        with open(out_path, 'w+') as fs:
+        with open(out_path, 'a') as fs:
             writer = csv.DictWriter(fs, fieldnames=labels)
             writer.writerow(outputs)

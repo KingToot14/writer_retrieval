@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    root = "output/patches/pretrained_vits16/train"
+    root = "output/patches/pretrained_vits16/test"
     
     paths = sorted(Path(root).rglob("*"))
     descriptors: list[Tensor] = []

@@ -24,12 +24,12 @@ class WriterIndex:
         Returns the top `k` closest documents to the `query` document. This assumes that the most
         similar document will be itself, so `k` is increased by 1, and the 1st value is omitted.
         
-        If `k` is equal to `-1`, all matches are returend instead
+        If `k` is equal to `-1`, up to 2048 matches are selected instead
         """
         
         # check for special `k` values
         if k == -1:
-            k = self.index.ntotal - 1
+            k = min(self.index.ntotal - 1, 2047)
         
         # check for batch processing
         if query.dim() == 1:
