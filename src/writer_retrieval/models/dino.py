@@ -64,7 +64,7 @@ class DINOModelv1(DINOModelBase):
             print("Loading DINOv1 from pre-trained weights")
             self.model = torch.hub.load(
                 "facebookresearch/dino:main",
-                version,
+                f"dino_{version}",
                 weights=weights
             )
         
@@ -125,7 +125,7 @@ class DINOModelv3(DINOModelBase):
             print("Loading DINOv3 from pre-trained weights")
             self.model = torch.hub.load(
                 "facebookresearch/dinov3:main",
-                version,
+                f"dinov3_{version}",
                 weights=weights
             )
         
