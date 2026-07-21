@@ -5,7 +5,7 @@ import faiss
 import faiss.contrib.torch_utils
 
 class VLADCodebook():
-    def train(self, patches: Tensor, centroids: int = 100, niter: int = 25) -> None:
+    def train(self, patches: Tensor, k: int = 100, niter: int = 25) -> None:
         """
         Trains a VLAD codebook using FAISS's KMeans
         
@@ -15,19 +15,31 @@ class VLADCodebook():
             niter (int): the number of training iterations to perform
         """
         
+        self.k = k
+        
         # create kmeans
-        kmeans = faiss.Kmeans(
+        self.kmeans = faiss.Kmeans(
             d=patches.shape[1],
-            k=centroids,
+            k=k,
             niter=niter,
             verbose=True,
             gpu=True,
         )
         
         # trains kmeans
-        kmeans.train(patches)
+        self.kmeans.train(patches.cpu())
+        self.centroids = torch.as_tensor(
+            self.kmeans.centroids,
+            device=patches.device,
+            dtype=patches.dtype
+        )
         
-        self.kmeans = kmeans
+        # set index
+        self.res = faiss.StandardGpuResources()
+        self.index = faiss.GpuIndexFlatL2(
+            self.res, patches.shape[1]
+        )
+        self.index.add(self.centroids)
 
     def create_descriptor(self, patches: Tensor) -> Tensor:
         """
@@ -35,4 +47,18 @@ class VLADCodebook():
         VLAD aggregation through the trained codebook
         """
         
-        pass
+        # calculate closest centroids
+        _, indices = self.index.search(patches, 1)
+        indices = indices.squeeze()
+        residuals = patches - self.centroids[indices]
+        
+        # build descriptor
+        descriptor = torch.zeros(self.k, patches.shape[1], device=patches.device)
+        
+        descriptor.index_add_(0, indices, residuals)
+        descriptor = descriptor.reshape(-1)
+        
+        # TODO: normalize (if that's correct)
+        
+        return descriptor
+        

@@ -24,7 +24,7 @@ def save_patches(path: str, patches: Tensor, writers: Tensor, documents: Tensor)
         'documents': documents,
     }, path)
 
-def load_documents(path: str) -> list[tuple[Tensor, int]]:
+def load_patch(path: str) -> list[tuple[Tensor, int]]:
     """
     Loads a set of patches and groups them into individual documents containing the
     grouped patch tokens and the writer ID
@@ -36,37 +36,38 @@ def load_documents(path: str) -> list[tuple[Tensor, int]]:
         documents (list[tuple[Tensor, int]]): The documents in the specified patch file
     """
     
-    data = torch.load(path, map_location="cpu")
+    data = torch.load(path, map_location="cuda:0")
     
     unique_documents, counts = torch.unique_consecutive(data['documents'], return_counts=True)
     grouped_patches: Tensor = torch.split(data['patches'], counts.tolist())
     
     return [(grouped_patches[i].contiguous(), int(unique_documents[i])) for i in range(len(unique_documents))]
 
-def sample_document_patches(root: str, num_samples: int = 512, threads: int = 8) -> Tensor:
+def load_documents(root: str, target_samples: int = -1, threads: int = 8) -> Tensor:
     """
-    Collects a subsample of document patches to be used for VLAD codebook training.
-
-    This iteratively loads all patches from the ``root`` directory, groups them into documents,
-    and samples a fixed number of patches per document. The resulting Tensor is returned on CPU
+    Loads and groups all documents found in the patch files under the `root` directory. This is all done on
+    the CPU for simplicity and performance. There's an optional `target_samples` parameter that can limit
+    the number of patches collected per document (useful for VLAD codebook training).
     """
     
     paths = sorted(Path(root).rglob("*"))
 
+    # helper function that acts as a target for thread workers
     def _load_and_sample(path: Path) -> list[Tensor]:
         sampled_documents = []
         
-        for document, _ in load_documents(str(path)):
+        for document, _ in load_patch(str(path)):
             patch_count = document.shape[0]
             
             # collect random sample (if more than target samples)
-            if patch_count <= num_samples:
+            if patch_count <= target_samples or target_samples == -1:
                 sampled_documents.append(document)
             else:
-                sampled_documents.append(document[torch.randperm(patch_count)[:num_samples]])
+                sampled_documents.append(document[torch.randperm(patch_count)[:target_samples]])
         
         return sampled_documents
 
+    # start threaded work
     if threads <= 1:
         sampled_documents = [document for path in paths for document in _load_and_sample(path)]
     else:
@@ -74,4 +75,4 @@ def sample_document_patches(root: str, num_samples: int = 512, threads: int = 8)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             sampled_documents = [document for batch in executor.map(_load_and_sample, paths) for document in batch]
 
-    return torch.cat(sampled_documents, dim=0)
+    return sampled_documents
