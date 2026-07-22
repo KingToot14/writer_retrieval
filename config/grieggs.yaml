@@ -1,6 +1,6 @@
 dataset: datasets/historical_wi
 run_name: grieggs
-weights: weights/grieggs_renamed.pt
+weights: weights/grieggs.pt
 
 model:
   kind: dino_v1
@@ -10,12 +10,3 @@ extract:
   num_windows: 4096
   train_stride: 224
   test_stride: 56
-
-runtime:
-  nnodes: 1
-  nproc_per_node: gpu
-  cuda_visible_devices: "0,1"
-  nccl_p2p_disable: 1
-  omp_num_threads: 1
-  master_addr: 127.0.0.1
-  master_port: 12345

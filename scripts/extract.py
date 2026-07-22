@@ -1,5 +1,10 @@
 import os
+from pathlib import Path
 from argparse import ArgumentParser
+
+import yaml
+
+from types import SimpleNamespace
 
 import torch
 from torch.utils.data import DataLoader
@@ -117,70 +122,88 @@ def extract_dataset(
         save_patches(f"output/patches/{output_name}/rank_{local_rank}-patch_{iteration}.pt", tokens, writers, documents)
         iteration += 1
 
+def dict_to_namespace(data: dict) -> SimpleNamespace:
+    """
+    A simple helper function that converts the `data` dictionary to a namespace that
+    allows using dot notation for variable access
+    """
+    
+    if isinstance(data, dict):
+        return SimpleNamespace(**{k: dict_to_namespace(v) for k, v in data.items()})
+    
+    elif isinstance(data, list):
+        return [dict_to_namespace(v) for v in data]
+    
+    return data
+
 if __name__ == "__main__":
-    parser = ArgumentParser("Extract Patches")
-    
-    # add arguments
-    parser.add_argument("dataset")
-    parser.add_argument("run_name")
-    parser.add_argument("-w", "--weights", default="weights/dinov3_vits16")
-    parser.add_argument("-v", "--version", default="vits16")
-    parser.add_argument("-n", "--num-windows", default=4096, type=int)
-    parser.add_argument("--dino-v1", default=False, action="store_true")
-    parser.add_argument("--train-stride", default=224, type=int)
-    parser.add_argument("--test-stride", default=224, type=int)
-    
-    world_size = os.getenv('WORLD_SIZE')
-    if not world_size:
-        world_size = 1
-    else:
-        world_size = int(world_size)
-    
-    local_rank = os.getenv('LOCAL_RANK')
-    if not local_rank:
-        local_rank = 0
-    else:
-        local_rank = int(local_rank)
-    
-    # parse arguments
-    args = parser.parse_args()
-    
-    # print settings
-    print(f"Extracting dataset: `{args.dataset}` ({args.run_name})")
-    print(f"    Weights: `{args.weights}`")
-    print(f"    Version: `{args.version}`")
-    print(f"    Model:   `{"DINOv1" if args.dino_v1 else "DINOv3"}`")
-    print(f"    Stride:  {args.train_stride} (train), {args.test_stride} (test)")
-    
-    # set PyTorch settings
-    torch.backends.fp32_precision = "tf32"
-    torch.backends.cuda.matmul.fp32_precision = "tf32"
-    torch.backends.cudnn.fp32_precision = "tf32"
-    
-    torch.set_float32_matmul_precision("medium")
-    
-    # extract training set
-    extract_dataset(
-        os.path.join(args.dataset, "train"),
-        os.path.join(args.run_name, "train"),
-        weight_path=args.weights,
-        dino_version=args.version,
-        use_dino_v1=args.dino_v1,
-        max_windows=args.num_windows,
-        stride=args.train_stride,
-        world_size=world_size,
-        local_rank=local_rank,
-    )
-    
-    # extract testing set
-    extract_dataset(
-        os.path.join(args.dataset, "test"),
-        os.path.join(args.run_name, "test"),
-        weight_path=args.weights,
-        dino_version=args.version,
-        use_dino_v1=args.dino_v1,
-        max_windows=args.num_windows,
-        stride=args.test_stride,
-        world_size=world_size,
-        local_rank=local_rank,
-    )
+    # create parser
+        parser = ArgumentParser()
+        parser.add_argument("config_file")
+        
+        # parse arguments
+        args = parser.parse_args()
+        
+        config: SimpleNamespace
+        
+        with open(args.config_file, "r") as fs:
+            config = dict_to_namespace(yaml.load(fs, Loader=yaml.FullLoader))
+        
+        # set environment variables
+        repo = Path(__file__).resolve().parents[1]
+        
+        # --- Patch Extraction --- #
+        world_size = os.getenv('WORLD_SIZE')
+        if not world_size:
+            world_size = 1
+        else:
+            world_size = int(world_size)
+        
+        local_rank = os.getenv('LOCAL_RANK')
+        if not local_rank:
+            local_rank = 0
+        else:
+            local_rank = int(local_rank)
+        
+        # parse arguments
+        args = parser.parse_args()
+        
+        # print settings
+        print(f"Extracting dataset: `{config.dataset}` ({config.run_name})")
+        print(f"    Weights: `{config.weights}`")
+        print(f"    Version: `{config.model.version}`")
+        print(f"    Model:   `{config.model.kind}`")
+        print(f"    Stride:  {config.extract.train_stride} (train), {config.extract.test_stride} (test)")
+        
+        # set PyTorch settings
+        torch.backends.fp32_precision = "tf32"
+        torch.backends.cuda.matmul.fp32_precision = "tf32"
+        torch.backends.cudnn.fp32_precision = "tf32"
+        
+        torch.set_float32_matmul_precision("medium")
+        
+        # extract training set
+        extract_dataset(
+            os.path.join(config.dataset, "train"),
+            os.path.join(config.run_name, "train"),
+            weight_path=config.weights,
+            dino_version=config.model.version,
+            use_dino_v1=config.model.kind == "dino_v1",
+            max_windows=config.extract.num_windows,
+            stride=config.extract.train_stride,
+            world_size=world_size,
+            local_rank=local_rank,
+        )
+        
+        # extract testing set
+        extract_dataset(
+            os.path.join(config.dataset, "test"),
+            os.path.join(config.run_name, "test"),
+            weight_path=config.weights,
+            dino_version=config.model.version,
+            use_dino_v1=config.model.kind == "dino_v1",
+            max_windows=config.extract.num_windows,
+            stride=config.extract.test_stride,
+            world_size=world_size,
+            local_rank=local_rank,
+        )
